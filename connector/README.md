@@ -97,3 +97,12 @@ Your bank login never touches this project. You approve access inside your bank'
 
 Each writes one self-contained HTML file into `output/` (git-ignored, mode 600). No network, no external scripts.
 Personal category and income rules live in `~/.config/bank-mcp/categories.json` (see `categories.example.json`).
+
+### Try the dashboards without any bank data
+
+```bash
+cd connector && ./.venv/bin/python examples/make_sample.py
+```
+
+This writes `output/sample-spending.html` and `output/sample-income-vs-expenses.html` from invented data (fixed seed),
+so you can see the dashboards, or take screenshots, without connecting an account.
