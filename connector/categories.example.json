@@ -1,0 +1,41 @@
+{
+  "_comment": "Copy to ~/.config/bank-mcp/categories.json and edit. Your rules are checked before the built-in ones. Never commit your real file.",
+  "internal_names": [
+    "your surname",
+    "partner's surname"
+  ],
+  "rules": [
+    [
+      "Studio rent",
+      "business",
+      "studio rent"
+    ],
+    [
+      "Accountant",
+      "business",
+      "my accountant|bookkeeping subscription"
+    ],
+    [
+      "Business tools",
+      "business",
+      "shopify|cloudflare|domain registrar"
+    ],
+    [
+      "Gym",
+      "household",
+      "my gym name"
+    ]
+  ],
+  "income_rules": [
+    [
+      "Transfers from partner",
+      "transfer",
+      "partner's surname"
+    ],
+    [
+      "Customers",
+      "earned",
+      "my customer's name"
+    ]
+  ]
+}

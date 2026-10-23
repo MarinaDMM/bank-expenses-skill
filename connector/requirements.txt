@@ -1,0 +1,4 @@
+mcp>=1.2,<2
+pyjwt[crypto]>=2.8
+requests>=2.31
+pytest

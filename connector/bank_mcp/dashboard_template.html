@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monthly expenses</title>
+<style>
+  :root {
+    --bg:#f6f7f9; --card:#ffffff; --fg:#1b1f24; --muted:#667085; --line:#e4e7ec; --accent:#2563eb; --accent-soft:#e8f0fe;
+    --good:#15803d; --warn:#b45309; --shadow:0 1px 2px rgba(16,24,40,.06);
+    --c0:#2563eb; --c1:#f59e0b; --c2:#10b981; --c3:#ef4444; --c4:#8b5cf6; --c5:#06b6d4; --c6:#ec4899; --c7:#84cc16; --c8:#f97316; --c9:#64748b; --cother:#cbd5e1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1318; --card:#171c23; --fg:#e8ecf1; --muted:#98a2b3; --line:#2a313b; --accent:#6ea8ff; --accent-soft:#1c2a44;
+      --good:#4ade80; --warn:#fbbf24; --shadow:none;
+      --c0:#6ea8ff; --c1:#fbbf24; --c2:#34d399; --c3:#f87171; --c4:#a78bfa; --c5:#22d3ee; --c6:#f472b6; --c7:#a3e635; --c8:#fb923c; --c9:#94a3b8; --cother:#475569; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:1120px; margin:0 auto; padding:24px 16px 48px; }
+  header { display:flex; flex-wrap:wrap; gap:12px 24px; align-items:flex-end; justify-content:space-between; margin-bottom:16px; }
+  h1 { font-size:22px; margin:0; }
+  .sub { color:var(--muted); font-size:13px; margin-top:2px; }
+  .controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .seg { display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--card); }
+  .seg button { border:0; background:transparent; color:var(--fg); padding:6px 12px; font:inherit; cursor:pointer; }
+  .seg button[aria-pressed="true"] { background:var(--accent); color:#fff; }
+  .chip { display:inline-flex; gap:6px; align-items:center; border:1px solid var(--line); background:var(--card); border-radius:999px; padding:4px 10px; font-size:12px; cursor:pointer; color:var(--fg); }
+  .chip[aria-pressed="false"] { opacity:.45; }
+  .grid { display:grid; gap:12px; }
+  .kpis { grid-template-columns:repeat(4,1fr); margin-bottom:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; box-shadow:var(--shadow); }
+  .kpi .label { color:var(--muted); font-size:12px; }
+  .kpi .value { font-size:24px; font-weight:650; margin-top:2px; font-variant-numeric:tabular-nums; }
+  .kpi .note { color:var(--muted); font-size:12px; margin-top:2px; }
+  h2 { font-size:15px; margin:0 0 2px; }
+  .hint { color:var(--muted); font-size:12px; margin:0 0 10px; }
+  .legend { display:flex; flex-wrap:wrap; gap:6px 12px; margin-top:8px; }
+  .legend button { border:0; background:none; color:var(--fg); font:inherit; font-size:12px; display:inline-flex; gap:6px; align-items:center; cursor:pointer; padding:0; }
+  .legend button[aria-pressed="false"] { opacity:.35; }
+  .dot { width:10px; height:10px; border-radius:3px; display:inline-block; }
+  svg text { fill:var(--muted); font-size:11px; font-family:inherit; }
+  .two { grid-template-columns:3fr 2fr; margin-top:12px; }
+  .stack { margin-top:12px; }
+  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+  th, td { padding:4px 6px; font-size:12px; text-align:right; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th:first-child, td:first-child { text-align:left; }
+  th { color:var(--muted); font-weight:600; font-size:12px; position:sticky; top:0; background:var(--card); }
+  .scroll { overflow-x:auto; }
+  .bar { height:8px; border-radius:4px; background:var(--accent); }
+  .row { display:grid; grid-template-columns:minmax(120px,1fr) 2fr auto; gap:8px; align-items:center; padding:4px 0; }
+  .row .name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tag { font-size:11px; border-radius:999px; padding:1px 8px; background:var(--accent-soft); color:var(--accent); }
+  .tag.business { background:#fef3c7; color:#92400e; }
+  @media (prefers-color-scheme: dark) { .tag.business { background:#3b2f10; color:#fbbf24; } }
+  select { font:inherit; color:var(--fg); background:var(--card); border:1px solid var(--line); border-radius:8px; padding:4px 8px; }
+  #tip { position:fixed; pointer-events:none; background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:8px 10px; box-shadow:0 6px 24px rgba(0,0,0,.18); font-size:12px; display:none; z-index:10; min-width:180px; }
+  #tip b { display:block; margin-bottom:4px; }
+  #tip .r { display:flex; justify-content:space-between; gap:16px; }
+  footer { color:var(--muted); font-size:12px; margin-top:20px; }
+  @media (max-width:860px) { .kpis { grid-template-columns:repeat(2,1fr); } .two { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1 id="title">Monthly expenses</h1>
+      <div class="sub" id="sub"></div>
+    </div>
+    <div class="controls">
+      <div class="seg" id="scope" role="group" aria-label="Scope">
+        <button data-v="all" aria-pressed="true">All</button>
+        <button data-v="household" aria-pressed="false">Household</button>
+        <button data-v="business" aria-pressed="false">Business</button>
+      </div>
+      <button class="chip" id="cards" aria-pressed="true" title="Statement payments to your credit cards. The bank does not itemise what was bought.">Credit card payments</button>
+    </div>
+  </header>
+
+  <div class="controls" id="accounts" style="margin-bottom:12px" aria-label="Accounts"></div>
+
+  <section class="grid kpis" id="kpis"></section>
+
+  <section class="card">
+    <h2>Spending per month</h2>
+    <p class="hint">Stacked by category. Click a legend item to hide it. The latest month is still in progress.</p>
+    <div id="chart"></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <section class="card stack">
+    <h2>Category by month</h2>
+    <p class="hint">Darker cells are the larger months for that category. Scroll sideways on small screens.</p>
+    <div class="scroll"><table id="heat"></table></div>
+  </section>
+
+  <section class="card stack">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+      <h2>Biggest payees</h2><select id="month" aria-label="Month"></select>
+    </div>
+    <p class="hint">Largest spending by payee in the chosen month. Click a bar in the chart to pick that month.</p>
+    <div id="payees"></div>
+  </section>
+
+  <section class="card stack">
+    <h2>Recurring costs</h2>
+    <p class="hint">Same payee and similar amount in at least four of the last six months.</p>
+    <div class="scroll"><table id="recurring"></table></div>
+  </section>
+
+  <footer id="foot"></footer>
+</main>
+<div id="tip" role="tooltip"></div>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+(() => {
+  const D = JSON.parse(document.getElementById("data").textContent);
+  const nf0 = new Intl.NumberFormat("en-GB", { style:"currency", currency:D.currency, maximumFractionDigits:0 });
+  const eur = v => nf0.format(v);
+  const eur2 = new Intl.NumberFormat("en-GB", { style:"currency", currency:D.currency });
+  const kfmt = v => v >= 1000 ? "€" + (v/1000).toFixed(v >= 10000 ? 0 : 1) + "k" : "€" + Math.round(v);
+  const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const monthName = m => `${MON[+m.slice(5, 7) - 1]} \u2019${m.slice(2, 4)}`;
+  const $ = id => document.getElementById(id);
+
+  const state = { scope:"all", accounts:new Set(D.accounts.map(a => a.id)), cards:true, hidden:new Set(), month:null };
+  const CARD = "Credit card payments";
+
+  const rows = () => D.data.filter(r =>
+    (state.scope === "all" || r.scope === state.scope) &&
+    state.accounts.has(r.account) && (state.cards || r.category !== CARD));
+  const sum = a => a.reduce((s, x) => s + x, 0);
+  const fullMonths = () => D.months.filter(m => m < D.current_month);
+
+  function monthTotals(rs) { const t = {}; D.months.forEach(m => t[m] = 0); rs.forEach(r => t[r.month] += r.amount); return t; }
+
+  const SMALL = "Smaller categories";
+  function palette(rs) {
+    const totals = {}; rs.forEach(r => totals[r.category] = (totals[r.category] || 0) + r.amount);
+    const order = Object.keys(totals).sort((x, y) => totals[y] - totals[x]);
+    const color = {}; order.forEach((c, i) => color[c] = i < 9 ? `var(--c${i})` : "var(--cother)");
+    return { order, color, totals, small: new Set(order.slice(9)) };
+  }
+  const groupOf = (pal, c) => pal.small.has(c) ? SMALL : c;
+  const groupsOf = pal => { const g = pal.order.filter(c => !pal.small.has(c)); if (pal.small.size) g.push(SMALL); return g; };
+
+  function drawKpis(rs) {
+    const t = monthTotals(rs), full = fullMonths(), last = full[full.length - 1];
+    const avg = n => { const m = full.slice(-n); return m.length ? sum(m.map(x => t[x])) / m.length : 0; };
+    const med = n => { const v = full.slice(-n).map(x => t[x]).sort((p, q) => p - q); if (!v.length) return 0; const h = v.length >> 1; return v.length % 2 ? v[h] : (v[h - 1] + v[h]) / 2; };
+    const cur = t[D.current_month] || 0;
+    const items = [
+      ["Last full month", last ? eur(t[last]) : "–", last ? monthName(last) : ""],
+      ["Average, last 6 full months", eur(avg(6)), `${Math.min(6, full.length)} months`],
+      ["This month so far", eur(cur), `${monthName(D.current_month)}, up to ${D.today}`],
+      ["Typical month", eur(med(6)), "median of the last 6 full months"],
+    ];
+    $("kpis").innerHTML = items.map(([l, v, n]) =>
+      `<div class="card kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="note">${n}</div></div>`).join("");
+  }
+
+  function tip(html, ev) {
+    const el = $("tip"); el.innerHTML = html; el.style.display = "block";
+    const w = el.offsetWidth, h = el.offsetHeight;
+    el.style.left = Math.min(ev.clientX + 14, innerWidth - w - 8) + "px";
+    el.style.top = Math.min(ev.clientY + 14, innerHeight - h - 8) + "px";
+  }
+  const hideTip = () => $("tip").style.display = "none";
+
+  function drawChart(rs, pal) {
+    const host = $("chart"), W = Math.max(host.clientWidth, 320), H = 300;
+    const m = { l:46, r:8, t:10, b:26 }, iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const months = D.months, gs = groupsOf(pal).filter(g => !state.hidden.has(g));
+    const byMonth = {}, raw = {}; months.forEach(x => { byMonth[x] = {}; raw[x] = {}; });
+    rs.forEach(r => { const g = groupOf(pal, r.category);
+      byMonth[r.month][g] = (byMonth[r.month][g] || 0) + r.amount; raw[r.month][r.category] = (raw[r.month][r.category] || 0) + r.amount; });
+    const totals = months.map(x => sum(gs.map(g => Math.max(0, byMonth[x][g] || 0))));
+    const max = Math.max(1, ...totals), step = Math.pow(10, Math.floor(Math.log10(max))), top = Math.ceil(max / step) * step;
+    const y = v => m.t + ih - (v / top) * ih, gap = iw / months.length, bw = Math.min(56, gap * 0.62);
+    let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Stacked bar chart of spending per month by category">`;
+    for (let i = 0; i <= 4; i++) { const v = top * i / 4;
+      s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${m.l - 6}" y="${y(v) + 4}" text-anchor="end">${kfmt(v)}</text>`; }
+    months.forEach((mo, i) => {
+      const x = m.l + gap * i + (gap - bw) / 2, partial = mo === D.current_month; let acc = 0;
+      s += `<g data-m="${mo}" opacity="${partial ? .6 : 1}" style="cursor:pointer">`;
+      gs.forEach(g => { const v = Math.max(0, byMonth[mo][g] || 0); if (!v) return;
+        const h = (v / top) * ih; acc += v;
+        s += `<rect x="${x}" y="${y(acc)}" width="${bw}" height="${Math.max(h - 1, 0)}" rx="2" fill="${g === SMALL ? "var(--cother)" : pal.color[g]}"/>`; });
+      s += `<rect x="${m.l + gap * i}" y="${m.t}" width="${gap}" height="${ih}" fill="transparent"/></g>`;
+      s += `<text x="${x + bw / 2}" y="${H - 8}" text-anchor="middle">${monthName(mo)}${partial ? "*" : ""}</text>`;
+      if (totals[i]) s += `<text x="${x + bw / 2}" y="${y(totals[i]) - 4}" text-anchor="middle" style="fill:var(--fg)">${kfmt(totals[i])}</text>`;
+    });
+    host.innerHTML = s + "</svg>";
+    host.querySelectorAll("g[data-m]").forEach(g => {
+      const mo = g.dataset.m;
+      const list = Object.entries(raw[mo]).filter(([c, v]) => v > 0 && !state.hidden.has(groupOf(pal, c))).sort((p, q) => q[1] - p[1]);
+      const html = `<b>${monthName(mo)}${mo === D.current_month ? " (so far)" : ""}: ${eur(sum(list.map(x => x[1])))}</b>` +
+        list.slice(0, 9).map(([c, v]) => `<div class="r"><span><span class="dot" style="background:${pal.color[c]}"></span> ${c}</span><span>${eur(v)}</span></div>`).join("") +
+        (list.length > 9 ? `<div class="r"><span>+ ${list.length - 9} more</span><span>${eur(sum(list.slice(9).map(x => x[1])))}</span></div>` : "");
+      g.addEventListener("mousemove", e => tip(html, e)); g.addEventListener("mouseleave", hideTip);
+      g.addEventListener("click", () => { state.month = mo; $("month").value = mo; drawPayees(rows()); });
+    });
+  }
+
+  function drawLegend(pal) {
+    $("legend").innerHTML = groupsOf(pal).map(g =>
+      `<button data-c="${g}" aria-pressed="${!state.hidden.has(g)}"><span class="dot" style="background:${g === SMALL ? "var(--cother)" : pal.color[g]}"></span>${g}</button>`).join("");
+    $("legend").querySelectorAll("button").forEach(b => b.onclick = () => {
+      const c = b.dataset.c; state.hidden.has(c) ? state.hidden.delete(c) : state.hidden.add(c); render(); });
+  }
+
+  function drawHeat(rs, pal) {
+    const by = {}; rs.forEach(r => { (by[r.category] ||= {})[r.month] = (by[r.category][r.month] || 0) + r.amount; });
+    const head = `<tr><th>Category</th>${D.months.map(m => `<th>${monthName(m)}${m === D.current_month ? "*" : ""}</th>`).join("")}<th>Total</th></tr>`;
+    const body = pal.order.map(c => {
+      const mx = Math.max(1, ...D.months.map(m => by[c][m] || 0));
+      const cells = D.months.map(m => { const v = by[c][m] || 0, a = v > 0 ? (0.08 + 0.5 * v / mx) : 0;
+        return `<td style="background:rgba(37,99,235,${a.toFixed(2)})">${v ? eur(v) : "·"}</td>`; }).join("");
+      return `<tr><td><span class="dot" style="background:${pal.color[c]}"></span> ${c}</td>${cells}<td><b>${eur(pal.totals[c])}</b></td></tr>`;
+    }).join("");
+    const t = monthTotals(rs);
+    const foot = `<tr><td><b>Total</b></td>${D.months.map(m => `<td><b>${eur(t[m])}</b></td>`).join("")}<td><b>${eur(sum(Object.values(t)))}</b></td></tr>`;
+    $("heat").innerHTML = head + body + foot;
+  }
+
+  function drawPayees(rs) {
+    const mo = state.month || D.months[D.months.length - 1];
+    const allowed = new Set(rs.map(r => r.category));
+    const list = (D.top[mo] || []).filter(p => (state.scope === "all" || p.scope === state.scope) && allowed.has(p.category) && (state.cards || p.category !== CARD));
+    const merged = {}; list.forEach(p => merged[p.name] = (merged[p.name] || 0) + p.amount);
+    const items = Object.entries(merged).sort((a, b) => b[1] - a[1]).slice(0, 10), mx = Math.max(1, ...items.map(x => x[1]));
+    $("payees").innerHTML = items.length ? items.map(([n, v]) =>
+      `<div class="row"><span class="name" title="${n.replace(/"/g, "&quot;")}">${n || "(unknown)"}</span><div><div class="bar" style="width:${(v / mx * 100).toFixed(0)}%"></div></div><span>${eur(v)}</span></div>`).join("")
+      : `<p class="hint">No spending in this selection.</p>`;
+  }
+
+  function drawRecurring() {
+    const all = D.recurring.filter(r => (state.scope === "all" || r.scope === state.scope) && (state.cards || r.category !== CARD));
+    const rs = all.slice(0, 25);
+    $("recurring").innerHTML = `<tr><th>Payee</th><th>Category</th><th>Type</th><th>Typical amount</th><th>Around day</th><th>Months seen</th></tr>` +
+      rs.map(r => `<tr><td>${r.name}</td><td>${r.category}</td><td><span class="tag ${r.scope}">${r.scope}</span></td><td>${eur2.format(r.amount)}</td><td>${r.day}</td><td>${r.months_seen}/6</td></tr>`).join("") +
+      `<tr><td><b>Monthly total of ${rs.length === all.length ? "these" : "the 25 largest (" + all.length + " found)"}</b></td><td></td><td></td><td><b>${eur2.format(sum(rs.map(r => r.amount)))}</b></td><td></td><td></td></tr>`;
+  }
+
+  function render() {
+    const rs = rows(), pal = palette(D.data.filter(r => (state.scope === "all" || r.scope === state.scope) && state.accounts.has(r.account) && (state.cards || r.category !== CARD)));
+    drawKpis(rs); drawLegend(pal); drawChart(rs, pal); drawHeat(rs, pal); drawPayees(rs); drawRecurring();
+    document.querySelectorAll("#scope button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === state.scope));
+    $("cards").setAttribute("aria-pressed", state.cards);
+  }
+
+  // setup
+  document.title = D.title; $("title").textContent = D.title;
+  $("sub").textContent = `${monthName(D.months[0])} to ${monthName(D.months[D.months.length - 1])} · ${D.accounts.length} accounts · generated ${D.generated.slice(0, 10)} · all data stays on this computer`;
+  $("accounts").innerHTML = D.accounts.map(a =>
+    `<button class="chip" data-a="${a.id}" aria-pressed="true">${a.bank} ···${a.last4} <span style="color:var(--muted)">${a.holder}</span></button>`).join("");
+  $("accounts").querySelectorAll("button").forEach(b => b.onclick = () => {
+    const id = b.dataset.a; state.accounts.has(id) ? state.accounts.delete(id) : state.accounts.add(id);
+    b.setAttribute("aria-pressed", state.accounts.has(id)); render(); });
+  document.querySelectorAll("#scope button").forEach(b => b.onclick = () => { state.scope = b.dataset.v; render(); });
+  $("cards").onclick = () => { state.cards = !state.cards; render(); };
+  $("month").innerHTML = D.months.map(m => `<option value="${m}">${monthName(m)}${m === D.current_month ? " (so far)" : ""}</option>`).join("");
+  state.month = D.months.length > 1 ? D.months[D.months.length - 2] : D.months[0]; $("month").value = state.month;
+  $("month").onchange = e => { state.month = e.target.value; drawPayees(rows()); };
+  const cov = Object.values(D.coverage_days); const internal = Object.values(D.internal_transfers).reduce((a, b) => a + b, 0);
+  $("foot").innerHTML = `* current month, not finished. Transfers between your own accounts and family (${eur(internal)} in this period) are not counted as spending. ` +
+    `Refunds from shops reduce their category. Credit card payments show what you paid to the card, not what was bought. ` +
+    `History returned by the banks: ${Math.min(...cov)} to ${Math.max(...cov)} days. This file contains your financial data: do not share or upload it.`;
+  addEventListener("resize", () => { clearTimeout(window.__t); window.__t = setTimeout(render, 120); });
+  render();
+})();
+</script>
+</body>
+</html>

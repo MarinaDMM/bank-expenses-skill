@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Income vs expenses</title>
+<style>
+  :root {
+    --bg:#f6f7f9; --card:#ffffff; --fg:#1b1f24; --muted:#667085; --line:#e4e7ec; --accent:#2563eb; --accent-soft:#e8f0fe;
+    --good:#15803d; --bad:#dc2626; --shadow:0 1px 2px rgba(16,24,40,.06);
+    --earn0:#10b981; --earn1:#84cc16; --earn2:#06b6d4; --earn3:#8b5cf6; --earn4:#f59e0b; --earn5:#ec4899;
+    --xfer0:#2563eb; --xfer1:#60a5fa; --xfer2:#93c5fd; --house:#ef4444; --biz:#f59e0b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1318; --card:#171c23; --fg:#e8ecf1; --muted:#98a2b3; --line:#2a313b; --accent:#6ea8ff; --accent-soft:#1c2a44;
+      --good:#4ade80; --bad:#f87171; --shadow:none;
+      --earn0:#34d399; --earn1:#a3e635; --earn2:#22d3ee; --earn3:#a78bfa; --earn4:#fbbf24; --earn5:#f472b6;
+      --xfer0:#6ea8ff; --xfer1:#4f86d9; --xfer2:#3a68b0; --house:#f87171; --biz:#fbbf24; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:1120px; margin:0 auto; padding:24px 16px 48px; }
+  header { display:flex; flex-wrap:wrap; gap:12px 24px; align-items:flex-end; justify-content:space-between; margin-bottom:16px; }
+  h1 { font-size:22px; margin:0; } h2 { font-size:15px; margin:0 0 2px; }
+  .sub, .hint { color:var(--muted); font-size:12.5px; } .hint { margin:0 0 10px; }
+  .seg { display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--card); }
+  .seg button { border:0; background:transparent; color:var(--fg); padding:6px 12px; font:inherit; cursor:pointer; }
+  .seg button[aria-pressed="true"] { background:var(--accent); color:#fff; }
+  .chip { display:inline-flex; gap:6px; align-items:center; border:1px solid var(--line); background:var(--card); border-radius:999px; padding:4px 10px; font-size:12px; margin:0 6px 6px 0; }
+  .grid { display:grid; gap:12px; } .kpis { grid-template-columns:repeat(4,1fr); margin-bottom:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; box-shadow:var(--shadow); }
+  .stack { margin-top:12px; }
+  .kpi .label { color:var(--muted); font-size:12px; } .kpi .value { font-size:24px; font-weight:650; margin-top:2px; font-variant-numeric:tabular-nums; }
+  .kpi .note { color:var(--muted); font-size:12px; margin-top:2px; }
+  .pos { color:var(--good); } .neg { color:var(--bad); }
+  .legend { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:8px; font-size:12px; }
+  .dot { width:10px; height:10px; border-radius:3px; display:inline-block; margin-right:5px; }
+  svg text { fill:var(--muted); font-size:11px; font-family:inherit; }
+  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+  th, td { padding:4px 8px; text-align:right; border-bottom:1px solid var(--line); white-space:nowrap; font-size:12.5px; }
+  th:first-child, td:first-child { text-align:left; } th { color:var(--muted); font-weight:600; }
+  tr.group td { background:var(--accent-soft); color:var(--accent); font-weight:600; text-align:left; }
+  tr.total td { font-weight:650; } .scroll { overflow-x:auto; }
+  .fund { display:flex; height:22px; border-radius:6px; overflow:hidden; margin:8px 0 6px; background:var(--line); }
+  .fund span { display:block; height:100%; }
+  #tip { position:fixed; pointer-events:none; background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:8px 10px; box-shadow:0 6px 24px rgba(0,0,0,.18); font-size:12px; display:none; z-index:10; min-width:210px; }
+  #tip b { display:block; margin-bottom:4px; } #tip .r { display:flex; justify-content:space-between; gap:16px; } #tip hr { border:0; border-top:1px solid var(--line); margin:5px 0; }
+  footer { color:var(--muted); font-size:12px; margin-top:20px; }
+  @media (max-width:860px) { .kpis { grid-template-columns:repeat(2,1fr); } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div><h1 id="title">Income vs expenses</h1><div class="sub" id="sub"></div></div>
+    <div class="seg" id="scope" role="group" aria-label="Expenses to compare">
+      <button data-v="all" aria-pressed="true">All expenses</button>
+      <button data-v="household" aria-pressed="false">Household</button>
+      <button data-v="business" aria-pressed="false">Business</button>
+    </div>
+  </header>
+  <div id="accounts"></div>
+  <section class="grid kpis" id="kpis"></section>
+
+  <section class="card">
+    <h2>How the expenses were funded</h2>
+    <p class="hint" id="fundHint"></p>
+    <div class="fund" id="fund"></div>
+    <div class="legend" id="fundLegend"></div>
+  </section>
+
+  <section class="card stack">
+    <h2>Money in vs money out, per month</h2>
+    <p class="hint">Left bar: what came in (earned income, then transfers from other accounts). Right bar: what was spent. Hover a month for details.</p>
+    <div id="chart1"></div>
+    <div class="legend" id="legend1"></div>
+  </section>
+
+  <section class="card stack">
+    <h2>Monthly gap</h2>
+    <p class="hint">Bars: earned income minus expenses. Dots: the gap once transfers in and out are counted.</p>
+    <div id="chart2"></div>
+  </section>
+
+  <section class="card stack">
+    <h2>Month by month</h2>
+    <p class="hint">Totals cover the full months only. The latest month is still in progress.</p>
+    <div class="scroll"><table id="table"></table></div>
+  </section>
+  <footer id="foot"></footer>
+</main>
+<div id="tip" role="tooltip"></div>
+<script id="data" type="application/json">__DATA__</script>
+<script>
+(() => {
+  const D = JSON.parse(document.getElementById("data").textContent), $ = id => document.getElementById(id);
+  const nf = new Intl.NumberFormat("en-GB", { style:"currency", currency:D.currency, maximumFractionDigits:0 });
+  const eur = v => (v < 0 ? "−" : "") + nf.format(Math.abs(v));
+  const kfmt = v => { const a = Math.abs(v), s = v < 0 ? "−" : ""; return a >= 1000 ? s + "€" + (a / 1000).toFixed(a >= 10000 ? 0 : 1) + "k" : s + "€" + Math.round(a); };
+  const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const mname = m => `${MON[+m.slice(5, 7) - 1]} ’${m.slice(2, 4)}`;
+  const sum = a => a.reduce((s, x) => s + x, 0);
+  const state = { scope:"all" };
+  // round axis range and ticks to 1, 2, 2.5 or 5 times a power of ten
+  function scale(min, max, n = 4) {
+    const span = Math.max(max - min, 1), raw = span / n, p = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1, 2, 2.5, 5, 10].map(f => f * p).find(v => v >= raw);
+    const lo = Math.floor(min / step) * step, hi = Math.ceil(max / step) * step, ticks = [];
+    for (let v = lo; v <= hi + step / 2; v += step) ticks.push(v);
+    return { lo, hi, ticks };
+  }
+  const months = D.months, full = months.filter(m => m < D.current_month);
+
+  // ---- data ----
+  const kindOf = {}, inBy = {}; months.forEach(m => inBy[m] = {});
+  D.income.forEach(r => { kindOf[r.label] = r.kind; inBy[r.month][r.label] = (inBy[r.month][r.label] || 0) + r.amount; });
+  const totalsByLabel = {}; D.income.filter(r => full.includes(r.month)).forEach(r => totalsByLabel[r.label] = (totalsByLabel[r.label] || 0) + r.amount);
+  const labels = Object.keys(kindOf).sort((a, b) => (kindOf[a] === kindOf[b] ? (totalsByLabel[b] || 0) - (totalsByLabel[a] || 0) : kindOf[a] === "earned" ? -1 : 1));
+  const color = {}; let e = 0, x = 0;
+  labels.forEach(l => color[l] = kindOf[l] === "earned" ? `var(--earn${e++ % 6})` : `var(--xfer${x++ % 3})`);
+  const expense = m => { const o = D.expenses[m] || {}; return state.scope === "all" ? (o.household || 0) + (o.business || 0) : (o[state.scope] || 0); };
+  const earned = m => sum(labels.filter(l => kindOf[l] === "earned").map(l => inBy[m][l] || 0));
+  const transfersIn = m => sum(labels.filter(l => kindOf[l] === "transfer").map(l => inBy[m][l] || 0));
+  const out = m => D.transfers_out[m] || 0;
+  const gapEarned = m => earned(m) - expense(m);
+  const gapAll = m => earned(m) + transfersIn(m) - expense(m) - out(m);
+
+  function tip(html, ev) { const el = $("tip"); el.innerHTML = html; el.style.display = "block";
+    el.style.left = Math.min(ev.clientX + 14, innerWidth - el.offsetWidth - 8) + "px"; el.style.top = Math.min(ev.clientY + 14, innerHeight - el.offsetHeight - 8) + "px"; }
+  const hideTip = () => $("tip").style.display = "none";
+  const signed = v => `<span class="${v >= 0 ? "pos" : "neg"}">${eur(v)}</span>`;
+
+  function kpis() {
+    const E = sum(full.map(expense)), I = sum(full.map(earned)), T = sum(full.map(transfersIn)), O = sum(full.map(out)), N = I + T - E - O;
+    const items = [
+      ["Expenses", eur(E), `${full.length} full months, about ${eur(E / (full.length || 1))} a month`],
+      ["Earned income", eur(I), `about ${eur(I / (full.length || 1))} a month`],
+      ["Transfers in from other accounts", eur(T), O ? `and ${eur(O)} went out to other accounts` : "family and your other accounts"],
+      ["Net after transfers", signed(N), N >= 0 ? "more came in than went out" : "more went out than came in"],
+    ];
+    $("kpis").innerHTML = items.map(([l, v, n]) => `<div class="card kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="note">${n}</div></div>`).join("");
+    return { E, I, T, O, N };
+  }
+
+  function funding(k) {
+    const E = k.E || 1, a = Math.min(k.I, E), b = Math.min(k.T, Math.max(E - a, 0)), c = Math.max(E - a - b, 0), surplus = Math.max(k.I + k.T - k.O - E, 0);
+    $("fundHint").textContent = `Last ${full.length} full months: where the money for ${eur(k.E)} of expenses came from.`;
+    const part = (v, col) => v > 0 ? `<span style="width:${(v / E * 100).toFixed(1)}%;background:${col}" title="${eur(v)}"></span>` : "";
+    $("fund").innerHTML = part(a, "var(--earn0)") + part(b, "var(--xfer0)") + part(c, "var(--bad)");
+    const pct = v => Math.round(v / E * 100) + "%";
+    $("fundLegend").innerHTML =
+      `<span><span class="dot" style="background:var(--earn0)"></span>Earned income ${eur(a)} (${pct(a)})</span>` +
+      `<span><span class="dot" style="background:var(--xfer0)"></span>Transfers in ${eur(b)} (${pct(b)})</span>` +
+      (c > 0 ? `<span><span class="dot" style="background:var(--bad)"></span>Not covered by money in ${eur(c)} (${pct(c)}), paid from savings or credit</span>` : "") +
+      (surplus > 0 ? `<span>Left over after expenses: <b class="pos">${eur(surplus)}</b></span>` : "");
+  }
+
+  function chart1() {
+    const host = $("chart1"), W = Math.max(host.clientWidth, 320), H = 320, m = { l:48, r:8, t:14, b:28 }, iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const inTot = months.map(mo => earned(mo) + transfersIn(mo)), exTot = months.map(expense);
+    const sc = scale(0, Math.max(1, ...inTot, ...exTot)), top = sc.hi;
+    const y = v => m.t + ih - v / top * ih, gap = iw / months.length, bw = Math.min(40, gap * 0.36);
+    let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Money in and money out per month">`;
+    sc.ticks.forEach(v => { s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${m.l - 6}" y="${y(v) + 4}" text-anchor="end">${kfmt(v)}</text>`; });
+    months.forEach((mo, i) => {
+      const cx = m.l + gap * i + gap / 2, partial = mo === D.current_month; let acc = 0;
+      s += `<g data-m="${mo}" opacity="${partial ? .55 : 1}">`;
+      labels.forEach(l => { const v = Math.max(0, inBy[mo][l] || 0); if (!v) return; acc += v;
+        s += `<rect x="${cx - bw - 2}" y="${y(acc)}" width="${bw}" height="${Math.max(v / top * ih - 1, 0)}" rx="2" fill="${color[l]}"/>`; });
+      acc = 0;
+      const o = D.expenses[mo] || {}, parts = state.scope === "all" ? [["household", o.household || 0, "var(--house)"], ["business", o.business || 0, "var(--biz)"]] : [[state.scope, o[state.scope] || 0, state.scope === "household" ? "var(--house)" : "var(--biz)"]];
+      parts.forEach(([, v, col]) => { if (v <= 0) return; acc += v; s += `<rect x="${cx + 2}" y="${y(acc)}" width="${bw}" height="${Math.max(v / top * ih - 1, 0)}" rx="2" fill="${col}"/>`; });
+      s += `<rect x="${m.l + gap * i}" y="${m.t}" width="${gap}" height="${ih}" fill="transparent"/></g>`;
+      s += `<text x="${cx}" y="${H - 9}" text-anchor="middle">${mname(mo)}${partial ? "*" : ""}</text>`;
+      s += `<text x="${cx - bw / 2 - 2}" y="${y(inTot[i]) - 4}" text-anchor="middle" style="fill:var(--fg)">${kfmt(inTot[i])}</text>`;
+      s += `<text x="${cx + bw / 2 + 2}" y="${y(exTot[i]) - 4}" text-anchor="middle" style="fill:var(--fg)">${kfmt(exTot[i])}</text>`;
+    });
+    host.innerHTML = s + "</svg>";
+    host.querySelectorAll("g[data-m]").forEach(g => {
+      const mo = g.dataset.m, o = D.expenses[mo] || {};
+      const rows = labels.filter(l => inBy[mo][l]).map(l => `<div class="r"><span><span class="dot" style="background:${color[l]}"></span>${l}</span><span>${eur(inBy[mo][l])}</span></div>`).join("");
+      const html = `<b>${mname(mo)}${mo === D.current_month ? " (so far)" : ""}</b>${rows || "<div class='r'><span>No income</span><span></span></div>"}<hr>` +
+        `<div class="r"><span>Household expenses</span><span>${eur(o.household || 0)}</span></div><div class="r"><span>Business expenses</span><span>${eur(o.business || 0)}</span></div>` +
+        (out(mo) ? `<div class="r"><span>Transfers out</span><span>${eur(out(mo))}</span></div>` : "") + `<hr>` +
+        `<div class="r"><span>Earned minus expenses</span>${signed(gapEarned(mo))}</div><div class="r"><span>After transfers</span>${signed(gapAll(mo))}</div>`;
+      g.addEventListener("mousemove", e => tip(html, e)); g.addEventListener("mouseleave", hideTip);
+    });
+    $("legend1").innerHTML = labels.map(l => `<span><span class="dot" style="background:${color[l]}"></span>${l}</span>`).join("") +
+      `<span><span class="dot" style="background:var(--house)"></span>Household expenses</span><span><span class="dot" style="background:var(--biz)"></span>Business expenses</span>`;
+  }
+
+  function chart2() {
+    const host = $("chart2"), W = Math.max(host.clientWidth, 320), H = 260, m = { l:52, r:8, t:14, b:28 }, iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const a = months.map(gapEarned), b = months.map(gapAll), all = [...a, ...b];
+    const pad = (Math.max(...all, 0) - Math.min(...all, 0)) * 0.08, sc = scale(Math.min(-1000, ...all) - pad, Math.max(1000, ...all) + pad), hi = sc.hi, lo = sc.lo, span = hi - lo;
+    const y = v => m.t + (hi - v) / span * ih, gap = iw / months.length, bw = Math.min(46, gap * 0.5);
+    let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Monthly gap between income and expenses">`;
+    sc.ticks.forEach(v => { s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${m.l - 6}" y="${y(v) + 4}" text-anchor="end">${kfmt(v)}</text>`; });
+    s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(0)}" y2="${y(0)}" stroke="var(--muted)"/>`;
+    months.forEach((mo, i) => { const cx = m.l + gap * i + gap / 2, partial = mo === D.current_month, v = a[i];
+      s += `<rect x="${cx - bw / 2}" y="${Math.min(y(v), y(0))}" width="${bw}" height="${Math.abs(y(v) - y(0))}" rx="2" fill="${v >= 0 ? "var(--earn0)" : "var(--bad)"}" opacity="${partial ? .45 : .9}"/>`;
+      s += `<text x="${cx}" y="${H - 9}" text-anchor="middle">${mname(mo)}${partial ? "*" : ""}</text>`;
+      s += `<text x="${cx}" y="${v >= 0 ? y(v) - 5 : y(v) + 13}" text-anchor="middle" style="fill:var(--fg)">${kfmt(v)}</text>`; });
+    const pts = months.map((mo, i) => [m.l + gap * i + gap / 2, y(b[i])]);
+    s += `<polyline fill="none" stroke="var(--xfer0)" stroke-width="2" points="${pts.map(p => p.join(",")).join(" ")}"/>` + pts.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="var(--xfer0)"/>`).join("");
+    $("chart2").innerHTML = s + "</svg>";
+  }
+
+  function table() {
+    const cols = months, fm = (f, mo) => f(mo), row = (name, f, opts = {}) => {
+      const total = sum(full.map(f)); const fmt = opts.signed ? signed : eur;
+      return `<tr class="${opts.cls || ""}"><td>${name}</td>${cols.map(mo => `<td>${f(mo) ? fmt(f(mo)) : "·"}</td>`).join("")}<td><b>${fmt(total)}</b></td></tr>`; };
+    const head = `<tr><th></th>${cols.map(mo => `<th>${mname(mo)}${mo === D.current_month ? "*" : ""}</th>`).join("")}<th>${full.length}-month total</th></tr>`;
+    const grp = t => `<tr class="group"><td colspan="${cols.length + 2}">${t}</td></tr>`;
+    const earnedRows = labels.filter(l => kindOf[l] === "earned").map(l => row(l, mo => inBy[mo][l] || 0));
+    const xferRows = labels.filter(l => kindOf[l] === "transfer").map(l => row(l, mo => inBy[mo][l] || 0));
+    $("table").innerHTML = head + grp("Earned income") + earnedRows.join("") + row("Total earned income", earned, { cls:"total" }) +
+      grp("Transfers in from other accounts") + xferRows.join("") + row("Total transfers in", transfersIn, { cls:"total" }) +
+      grp("Expenses") + row("Household", mo => (D.expenses[mo] || {}).household || 0) + row("Business", mo => (D.expenses[mo] || {}).business || 0) +
+      row("Total expenses" + (state.scope === "all" ? "" : " (" + state.scope + ")"), expense, { cls:"total" }) +
+      grp("Result") + row("Transfers out to other accounts", out) + row("Earned income minus expenses", gapEarned, { cls:"total", signed:true }) +
+      row("After all transfers", gapAll, { cls:"total", signed:true });
+  }
+
+  function render() {
+    const k = kpis(); funding(k); chart1(); chart2(); table();
+    document.querySelectorAll("#scope button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === state.scope));
+  }
+  document.title = D.title; $("title").textContent = D.title;
+  $("sub").textContent = `${mname(months[0])} to ${mname(months[months.length - 1])} · ${D.accounts.length} accounts · generated ${D.generated.slice(0, 10)} · all data stays on this computer`;
+  $("accounts").innerHTML = D.accounts.map(a => `<span class="chip">${a.bank} ···${a.last4} <span style="color:var(--muted)">${a.holder}</span></span>`).join("");
+  document.querySelectorAll("#scope button").forEach(b => b.onclick = () => { state.scope = b.dataset.v; render(); });
+  const short = D.accounts.filter(a => D.history_from[a.id] && D.history_from[a.id] > months[0] + "-05");
+  const warn = short.length ? `<p class="neg"><b>Heads up:</b> the bank returned history only from ${short.map(a => a.bank + " \u00b7\u00b7\u00b7" + a.last4 + " " + D.history_from[a.id]).join(", ")}, so ${mname(months[0])} is incomplete for those accounts.</p>` : "";
+  $("foot").innerHTML = warn + "Earned income = benefits, tax refunds, salary, customer and platform payouts, and money from people. Transfers = money moved in from accounts that are not part of this view. " +
+    "Moves between the accounts in this view, shop refunds and Tikkie reimbursements are not counted as income. Credit card payments count as expenses when the payment is made. " +
+    "* current month, not finished. This file contains your financial data: do not share or upload it.";
+  addEventListener("resize", () => { clearTimeout(window.__t); window.__t = setTimeout(render, 120); });
+  render();
+})();
+</script>
+</body>
+</html>

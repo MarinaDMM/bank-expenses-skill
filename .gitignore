@@ -1,0 +1,18 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+.DS_Store
+
+# Never commit keys, sessions or bank data
+*.pem
+*.key
+app.json
+sessions/
+*.csv
+*.mt940
+*.sta
+*.xml
+
+# Generated dashboards contain financial data
+output/
